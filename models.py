@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class Article(BaseModel):
@@ -10,6 +10,11 @@ class Article(BaseModel):
     category: str
     summary: str
     image: Optional[str] = None
+
+    @field_validator("published", "title", "link", "source", "category", "summary", mode="before")
+    @classmethod
+    def coerce_none_to_str(cls, v: object) -> str:
+        return v if v is not None else ""
 
 
 class NewsResponse(BaseModel):

@@ -39,7 +39,7 @@ def parse_pub_date(entry) -> tuple[str, datetime | None]:
         local_dt = dt.astimezone()
         return local_dt.strftime("%Y-%m-%d %H:%M"), local_dt.replace(tzinfo=None)
     except Exception:
-        return entry.get("published", ""), None
+        return entry.get("published") or "", None
 
 
 def relative_to_dt(time_str: str) -> datetime | None:

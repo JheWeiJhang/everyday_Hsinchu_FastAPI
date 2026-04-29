@@ -8,15 +8,30 @@ from fetchers.aggregator import all_articles_for_date
 
 router = APIRouter(prefix="/api")
 
+# If a fresh fetch returns fewer than this fraction of the cached count,
+# assume a source failed and keep the old cache instead of overwriting.
+_MIN_REFRESH_RATIO = 0.5
+
+
+def _safe_save(target_date: str, new_articles: list[dict]) -> None:
+    """Save only if the new result is not suspiciously smaller than the cached one."""
+    old = _cache.load_cache_stale(target_date)
+    if old and len(new_articles) < len(old) * _MIN_REFRESH_RATIO:
+        print(
+            f"[cache] refresh for {target_date} returned {len(new_articles)} articles "
+            f"(cached: {len(old)}) — too few, keeping old cache"
+        )
+        return
+    save_cache(target_date, new_articles)
+
 
 async def _background_refresh(target_date: str) -> None:
-    """Fetch fresh data and update cache without blocking the response."""
     _cache.mark_refreshing(target_date)
     try:
         articles = await all_articles_for_date(target_date)
-        save_cache(target_date, articles)
+        _safe_save(target_date, articles)
     except Exception as e:
-        print(f"[background refresh error] {target_date}: {e}")
+        print(f"[background refresh error] {target_date}: {type(e).__name__}: {e}")
     finally:
         _cache.unmark_refreshing(target_date)
 
@@ -35,7 +50,7 @@ async def api_news(
     category: str = Query(default="all"),
     force: str = Query(default="0"),
 ):
-    target_date  = date or _date.today().strftime("%Y-%m-%d")
+    target_date   = date or _date.today().strftime("%Y-%m-%d")
     force_refresh = force == "1"
 
     from_cache = False
@@ -43,21 +58,18 @@ async def api_news(
     if not force_refresh:
         fresh = load_cache(target_date)
         if fresh is not None:
-            # Cache is fresh — return immediately
             articles, from_cache = fresh, True
         else:
             stale = load_cache_stale(target_date)
             if stale is not None and not _cache.is_refreshing(target_date):
-                # Stale data exists — return it now, refresh quietly in background
                 background_tasks.add_task(_background_refresh, target_date)
                 articles, from_cache = stale, True
             else:
-                # No cache at all (first run) — must wait
                 articles = await all_articles_for_date(target_date)
-                save_cache(target_date, articles)
+                _safe_save(target_date, articles)
     else:
         articles = await all_articles_for_date(target_date)
-        save_cache(target_date, articles)
+        _safe_save(target_date, articles)
 
     if category != "all":
         articles = [a for a in articles if a["category"] == category]
