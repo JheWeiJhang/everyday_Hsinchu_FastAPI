@@ -157,6 +157,15 @@
     if (filtered.length === 0) {
       grid.classList.add("hidden");
       empty.classList.remove("hidden");
+      // 影片分類空白時給更具體的說明
+      if (currentCategory === "影片") {
+        document.getElementById("empty-state").innerHTML =
+          `<div class="text-center py-16 text-gray-400">
+            <div class="text-5xl mb-4">▶️</div>
+            <p class="text-lg font-medium text-gray-500">此日期無 YouTube 影片</p>
+            <p class="text-sm mt-2">影片搜尋結果取決於 YouTube 演算法，<br>通常只涵蓋近 3～5 天的內容</p>
+          </div>`;
+      }
       document.getElementById("stats-text").textContent = "沒有找到相關內容";
       return;
     }

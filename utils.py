@@ -11,7 +11,7 @@ ATTRACTION_KW = ["景點", "公園", "博物館", "老街", "步道", "海邊", 
 ENTERTAINMENT_KW = ["演唱會", "音樂會", "展覽", "展出", "表演", "節慶", "嘉年華", "市集",
                     "夜市", "演出", "藝術節", "電影", "好玩", "推薦", "打卡", "週末活動"]
 HSINCHU_KW = ["新竹", "竹科", "竹北", "竹東", "新豐", "新埔", "關西", "湖口", "hsinchu"]
-YOUTUBE_MAX_DAYS = 14
+YOUTUBE_MAX_DAYS = 7   # YouTube 搜尋只能可靠地回傳近幾天的影片
 
 
 def detect_category(title: str, hint_category: str) -> str:

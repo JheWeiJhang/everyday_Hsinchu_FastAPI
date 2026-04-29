@@ -47,7 +47,7 @@ async def all_articles_for_date(target_date: str) -> list[dict]:
 
     if fetch_yt:
         youtube_coro = asyncio.wait_for(
-            asyncio.to_thread(fetch_youtube, "新竹 最新"), timeout=25
+            asyncio.to_thread(fetch_youtube, "新竹"), timeout=25
         )
         all_coros = raw_coros + [youtube_coro]
     else:
