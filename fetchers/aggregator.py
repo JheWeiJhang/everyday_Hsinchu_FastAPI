@@ -6,6 +6,7 @@ from fetchers.rss import fetch_rss, RSS_SOURCES
 from fetchers.ptt import fetch_ptt_board
 from fetchers.gov import fetch_hsinchu_county_gov, fetch_hsinchu_city_gov, fetch_hsinchu_culture
 from fetchers.youtube import fetch_youtube
+from utils import YOUTUBE_MAX_DAYS
 
 
 async def all_articles_for_date(target_date: str) -> list[dict]:
@@ -38,7 +39,13 @@ async def all_articles_for_date(target_date: str) -> list[dict]:
 
     # YouTube is synchronous (youtube-search-python) — run in thread pool.
     # Cap at 25 s: the library sometimes hangs on network issues.
-    if is_today:
+    # Fetch for today AND recent dates (within YOUTUBE_MAX_DAYS); date filtering
+    # handles which videos actually appear on each historical date.
+    target_dt = datetime.strptime(target_date, "%Y-%m-%d").date()
+    days_ago   = (date.today() - target_dt).days
+    fetch_yt   = days_ago <= YOUTUBE_MAX_DAYS  # today=0, yesterday=1, …
+
+    if fetch_yt:
         youtube_coro = asyncio.wait_for(
             asyncio.to_thread(fetch_youtube, "新竹 最新"), timeout=25
         )
@@ -56,9 +63,14 @@ async def all_articles_for_date(target_date: str) -> list[dict]:
         if isinstance(result, Exception):
             print(f"[fetcher error] task {i}: {result}")
             continue
-        # Last task is YouTube (flexible) when is_today
-        if is_today and i == n_raw:
-            flexible.extend(result)
+        # YouTube is the last task when fetch_yt=True.
+        # Today → flexible (skip strict date filter, pub_dt may be imprecise).
+        # Recent non-today → raw (strict date filter matches pub_dt to target_date).
+        if fetch_yt and i == n_raw:
+            if is_today:
+                flexible.extend(result)
+            else:
+                raw.extend(result)
         else:
             raw.extend(result)
 
