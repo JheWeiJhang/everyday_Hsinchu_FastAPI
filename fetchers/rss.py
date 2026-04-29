@@ -57,5 +57,5 @@ async def fetch_rss(url: str, hint_category: str, source_name: str) -> list[dict
             })
         return articles
     except Exception as e:
-        print(f"[RSS error] {source_name}: {e}")
+        print(f"[RSS error] {source_name}: {type(e).__name__}: {e}")
         return []

@@ -29,7 +29,7 @@ async def fetch_hsinchu_county_gov() -> list[dict]:
             })
         return articles
     except Exception as e:
-        print(f"[County Gov error] {e}")
+        print(f"[County Gov error] {type(e).__name__}: {e}")
         return []
 
 
@@ -78,7 +78,7 @@ async def fetch_hsinchu_city_gov() -> list[dict]:
             })
         return articles[:25]
     except Exception as e:
-        print(f"[City Gov error] {e}")
+        print(f"[City Gov error] {type(e).__name__}: {e}")
         return []
 
 
@@ -137,5 +137,5 @@ async def fetch_hsinchu_culture() -> list[dict]:
                 })
         return articles[:20]
     except Exception as e:
-        print(f"[Culture Bureau error] {e}")
+        print(f"[Culture Bureau error] {type(e).__name__}: {e}")
         return []

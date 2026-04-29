@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date as _date
 from fastapi import APIRouter, BackgroundTasks, Query
 import lifecycle
@@ -25,10 +26,19 @@ def _safe_save(target_date: str, new_articles: list[dict]) -> None:
     save_cache(target_date, new_articles)
 
 
+async def _fetch_with_timeout(target_date: str) -> list[dict]:
+    """Fetch articles, capped at 90 s to prevent an indefinite hang."""
+    try:
+        return await asyncio.wait_for(all_articles_for_date(target_date), timeout=90)
+    except asyncio.TimeoutError:
+        print(f"[aggregator timeout] {target_date} — returning empty list")
+        return []
+
+
 async def _background_refresh(target_date: str) -> None:
     _cache.mark_refreshing(target_date)
     try:
-        articles = await all_articles_for_date(target_date)
+        articles = await _fetch_with_timeout(target_date)
         _safe_save(target_date, articles)
     except Exception as e:
         print(f"[background refresh error] {target_date}: {type(e).__name__}: {e}")
@@ -65,10 +75,10 @@ async def api_news(
                 background_tasks.add_task(_background_refresh, target_date)
                 articles, from_cache = stale, True
             else:
-                articles = await all_articles_for_date(target_date)
+                articles = await _fetch_with_timeout(target_date)
                 _safe_save(target_date, articles)
     else:
-        articles = await all_articles_for_date(target_date)
+        articles = await _fetch_with_timeout(target_date)
         _safe_save(target_date, articles)
 
     if category != "all":

@@ -23,10 +23,14 @@ def _port_in_use(port: int) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
+_NO_WINDOW = subprocess.CREATE_NO_WINDOW
+
+
 def _kill_port(port: int) -> None:
     try:
         out = subprocess.check_output(
-            ["netstat", "-ano"], text=True, stderr=subprocess.DEVNULL
+            ["netstat", "-ano"], text=True, stderr=subprocess.DEVNULL,
+            creationflags=_NO_WINDOW,
         )
         for line in out.splitlines():
             if f":{port} " in line and "LISTENING" in line:
@@ -34,6 +38,7 @@ def _kill_port(port: int) -> None:
                 subprocess.call(
                     ["taskkill", "/PID", pid, "/F"],
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    creationflags=_NO_WINDOW,
                 )
                 print(f"[server] 已關閉舊的 Server (PID {pid})")
                 time.sleep(1)

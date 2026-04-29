@@ -63,5 +63,5 @@ def fetch_youtube(query: str) -> list[dict]:
 
         return articles
     except Exception as e:
-        print(f"[YouTube error] {e}")
+        print(f"[YouTube error] {type(e).__name__}: {e}")
         return []

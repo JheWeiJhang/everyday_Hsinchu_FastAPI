@@ -36,9 +36,13 @@ async def all_articles_for_date(target_date: str) -> list[dict]:
         fetch_hsinchu_culture(),
     ]
 
-    # YouTube is synchronous (youtube-search-python) — run in thread pool
+    # YouTube is synchronous (youtube-search-python) — run in thread pool.
+    # Cap at 25 s: the library sometimes hangs on network issues.
     if is_today:
-        all_coros = raw_coros + [asyncio.to_thread(fetch_youtube, "新竹 最新")]
+        youtube_coro = asyncio.wait_for(
+            asyncio.to_thread(fetch_youtube, "新竹 最新"), timeout=25
+        )
+        all_coros = raw_coros + [youtube_coro]
     else:
         all_coros = raw_coros
 

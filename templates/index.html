@@ -151,6 +151,7 @@
   function renderArticles() {
     const grid = document.getElementById("article-grid");
     const empty = document.getElementById("empty-state");
+    document.getElementById("error-state").classList.add("hidden");
     const filtered = getFilteredArticles();
 
     if (filtered.length === 0) {
@@ -221,8 +222,18 @@
 
     try {
       const params = new URLSearchParams({ date: targetDate, force: force ? "1" : "0" });
-      const res = await fetch(`/api/news?${params}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      let res, lastErr;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          res = await fetch(`/api/news?${params}`);
+          if (res.ok) break;
+          throw new Error(`HTTP ${res.status}`);
+        } catch (e) {
+          lastErr = e;
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
+        }
+      }
+      if (!res || !res.ok) throw lastErr;
       const data = await res.json();
 
       allArticles = data.articles || [];

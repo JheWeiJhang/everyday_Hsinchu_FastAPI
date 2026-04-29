@@ -1,6 +1,7 @@
-# 新竹每日大小事 🏙️
+# 新竹每日大小事
 
-> 一鍵啟動的新竹在地新聞聚合器，整合新聞、美食、景點、娛樂、生活、YouTube 影片。
+> 新竹在地新聞聚合器，整合新聞、美食、景點、娛樂、生活、YouTube 影片。
+> 支援直接執行的 Windows `.exe`，或透過 Python 開發模式啟動。
 
 ---
 
@@ -16,22 +17,33 @@
 
 ## 快速開始
 
-### 需求
-- Python 3.11+
-- Windows（啟動腳本使用 `.bat`）
+### 方式一：直接執行 exe（一般使用者）
 
-### 安裝與啟動
+從 [Releases](../../releases) 下載 `新竹每日大小事.exe`，雙擊執行即可。
 
-雙擊 `start.bat`，首次執行會自動安裝依賴套件並開啟瀏覽器。
+- 無需安裝 Python 或任何套件
+- 啟動時顯示進度視窗，server 就緒後自動開啟瀏覽器
+- 關閉瀏覽器分頁後，程式自動結束
 
-或手動執行：
+### 方式二：Python 開發模式
+
+**需求：** Python 3.11+、Windows
 
 ```bash
 pip install -r requirements.txt
 python main.py
+# 或直接雙擊 start.bat
 ```
 
 瀏覽器開啟 → http://127.0.0.1:5000
+
+### 方式三：重新打包 exe
+
+```bash
+pip install pyinstaller
+python -m PyInstaller build.spec
+# 輸出：dist/新竹每日大小事.exe
+```
 
 ---
 
@@ -39,11 +51,13 @@ python main.py
 
 ```
 everyday_Hsinchu_FastAPI/
-├── main.py                  # FastAPI app 入口、lifespan（啟動/關閉）
+├── main.py                  # FastAPI app 入口、lifespan、exe 啟動邏輯
 ├── models.py                # Pydantic 資料模型（Article、NewsResponse）
 ├── utils.py                 # 工具函式（分類偵測、日期解析、HTML 清理）
 ├── cache.py                 # 雙層快取（記憶體 + 磁碟 JSON）
 ├── lifecycle.py             # Port 管理、自動開瀏覽器、心跳監控
+├── paths.py                 # exe/開發模式兩用路徑解析
+├── splash.py                # 啟動進度視窗（tkinter，exe 專用）
 │
 ├── routes/
 │   ├── pages.py             # GET  /          → 回傳 HTML 頁面
@@ -53,16 +67,17 @@ everyday_Hsinchu_FastAPI/
 ├── fetchers/
 │   ├── aggregator.py        # 並行整合所有來源（asyncio.gather）
 │   ├── rss.py               # Google 新聞、中央社（RSS + httpx）
-│   ├── ptt.py               # PTT 新竹板、food-travel板（httpx）
+│   ├── ptt.py               # PTT 新竹板、food/travel板（httpx）
 │   ├── gov.py               # 新竹縣市政府、文化局（httpx）
 │   └── youtube.py           # YouTube 搜尋（youtube-search-python）
 │
 ├── templates/
 │   └── index.html           # 前端（Tailwind CSS + Vanilla JS）
 │
+├── build.spec               # PyInstaller 打包設定
+├── version_info.txt         # Windows exe 版本資訊
 ├── requirements.txt
-├── start.bat
-└── .gitignore
+└── start.bat                # 開發模式快速啟動腳本
 ```
 
 ---
@@ -71,25 +86,25 @@ everyday_Hsinchu_FastAPI/
 
 ```mermaid
 flowchart TD
-    Browser["🌐 瀏覽器"]
+    Browser["瀏覽器"]
 
     Browser -- "GET /" --> Pages["routes/pages.py\nJinja2 回傳 HTML"]
     Browser -- "GET /api/news" --> API["routes/api.py"]
-    Browser -- "GET /api/ping\n每 20 秒" --> Ping["心跳更新\nlifecycle.py"]
+    Browser -- "GET /api/ping 每 20 秒" --> Ping["心跳更新\nlifecycle.py"]
 
     API --> CacheCheck{"快取是否新鮮?\ncache.py"}
 
-    CacheCheck -- "✅ 新鮮" --> ReturnFresh["立即回傳"]
-    CacheCheck -- "⚠️ 過期（有舊資料）" --> ReturnStale["回傳舊資料\n+ 背景更新"]
-    CacheCheck -- "❌ 無快取" --> Wait["等待抓取完成"]
+    CacheCheck -- "新鮮" --> ReturnFresh["立即回傳"]
+    CacheCheck -- "過期（有舊資料）" --> ReturnStale["回傳舊資料\n+ 背景更新"]
+    CacheCheck -- "無快取" --> Wait["等待抓取完成"]
 
     ReturnStale -- "FastAPI BackgroundTask" --> Aggregator
     Wait --> Aggregator
 
     Aggregator["fetchers/aggregator.py\nasyncio.gather 並行抓取"]
 
-    Aggregator --> RSS["fetchers/rss.py\nGoogle 新聞 × 4\n中央社"]
-    Aggregator --> PTT["fetchers/ptt.py\nPTT 新竹板\nPTT food-travel板"]
+    Aggregator --> RSS["fetchers/rss.py\nGoogle 新聞 x 6\n中央社"]
+    Aggregator --> PTT["fetchers/ptt.py\nPTT 新竹板\nPTT food/travel板"]
     Aggregator --> Gov["fetchers/gov.py\n新竹縣政府\n新竹市政府\n新竹縣文化局"]
     Aggregator --> YT["fetchers/youtube.py\nYouTube 搜尋\n（今日限定）"]
 
@@ -99,6 +114,24 @@ flowchart TD
 
     Ping -- "45 秒無心跳" --> Shutdown["os._exit(0)\n伺服器自動關閉"]
 ```
+
+---
+
+## exe 啟動流程（雙 Process 架構）
+
+```mermaid
+flowchart LR
+    User["使用者雙擊 .exe"] --> Main["主 Process\n顯示 Splash 視窗"]
+    Main -- "Popen --server" --> Server["子 Process\nuvicorn 主執行緒"]
+    Server -- "/api/ping 就緒" --> Main
+    Main -- "Splash 關閉" --> Browser["瀏覽器開啟"]
+    Browser -- "關閉分頁" --> Heartbeat["心跳逾時 45s"]
+    Heartbeat --> Server
+    Server -- "exit 0" --> Main
+    Main -- "刪除 app.log" --> Exit["程式結束"]
+```
+
+> 採用雙 Process 設計，確保 tkinter（Splash）與 uvicorn（asyncio）各自在獨立的主執行緒運作，避免 Python 3.13 的執行緒限制問題。
 
 ---
 
@@ -156,9 +189,9 @@ flowchart TD
 | Google 新聞（新竹） | RSS | 新聞 |
 | Google 新聞（竹北市） | RSS | 新聞 |
 | Google 新聞（竹科） | RSS | 新聞 |
-| Google 新聞（美食） | RSS | 美食 |
-| Google 新聞（景點） | RSS | 景點 |
-| Google 新聞（娛樂） | RSS | 娛樂 |
+| Google 新聞（新竹美食） | RSS | 美食 |
+| Google 新聞（新竹景點） | RSS | 景點 |
+| Google 新聞（新竹娛樂） | RSS | 娛樂 |
 | 中央社地方新聞 | RSS | 新聞 |
 | PTT 新竹板 | 網頁爬蟲 | 生活 |
 | PTT Food板（新竹關鍵字篩選） | 網頁爬蟲 | 美食 |
@@ -182,6 +215,8 @@ flowchart TD
 | **youtube-search-python** | YouTube 搜尋 |
 | **Pydantic v2** | 資料驗證與序列化 |
 | **Tailwind CSS** | 前端樣式（CDN） |
+| **tkinter** | 啟動進度視窗（exe 專用） |
+| **PyInstaller** | Windows exe 打包 |
 
 ---
 
@@ -190,3 +225,4 @@ flowchart TD
 - `fetchers/gov.py` 對政府網站停用 SSL 驗證（`verify=False`），係因部分網站憑證設定問題。
 - YouTube 來源僅在查詢**今日**時顯示，歷史日期不包含。
 - 本專案為本機桌面工具，預設僅綁定 `127.0.0.1`，不對外開放。
+- exe 執行時若 crash，會保留 `app.log` 供除錯；正常結束則自動刪除。

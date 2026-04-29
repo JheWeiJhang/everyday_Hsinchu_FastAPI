@@ -2,8 +2,9 @@ import json
 import time
 from datetime import date, datetime
 from pathlib import Path
+from paths import data_path
 
-CACHE_DIR = Path("cache")
+CACHE_DIR = Path(data_path("cache"))
 CACHE_DIR.mkdir(exist_ok=True)
 CACHE_TTL = 1200  # 20 minutes (today only)
 
