@@ -1,0 +1,83 @@
+import re
+import asyncio
+from datetime import date, datetime, timedelta
+
+from fetchers.rss import fetch_rss, RSS_SOURCES
+from fetchers.ptt import fetch_ptt_board
+from fetchers.gov import fetch_hsinchu_county_gov, fetch_hsinchu_city_gov, fetch_hsinchu_culture
+from fetchers.youtube import fetch_youtube
+
+
+async def all_articles_for_date(target_date: str) -> list[dict]:
+    today_str = date.today().strftime("%Y-%m-%d")
+    is_today  = target_date == today_str
+
+    # Build RSS coroutines — inject date range for historical queries
+    rss_coros = []
+    for url, category, source in RSS_SOURCES:
+        if source == "Google 新聞" and not is_today:
+            dt      = datetime.strptime(target_date, "%Y-%m-%d")
+            next_dt = dt + timedelta(days=1)
+            base_q  = re.search(r"q=([^&]+)", url)
+            if base_q:
+                q   = base_q.group(1) + f"+after:{dt.strftime('%Y-%m-%d')}+before:{next_dt.strftime('%Y-%m-%d')}"
+                url = re.sub(r"q=[^&]+", f"q={q}", url)
+                url = url.replace("&when=7d", "")
+        rss_coros.append(fetch_rss(url, category, source))
+
+    # All sources fire at once
+    raw_coros = rss_coros + [
+        fetch_ptt_board("Hsinchu", "生活"),
+        fetch_ptt_board("food-travel", "美食"),
+        fetch_hsinchu_county_gov(),
+        fetch_hsinchu_city_gov(),
+        fetch_hsinchu_culture(),
+    ]
+
+    # YouTube is synchronous (youtube-search-python) — run in thread pool
+    if is_today:
+        all_coros = raw_coros + [asyncio.to_thread(fetch_youtube, "新竹 最新")]
+    else:
+        all_coros = raw_coros
+
+    results = await asyncio.gather(*all_coros, return_exceptions=True)
+
+    raw:      list[dict] = []
+    flexible: list[dict] = []
+    n_raw = len(raw_coros)
+
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            print(f"[fetcher error] task {i}: {result}")
+            continue
+        # Last task is YouTube (flexible) when is_today
+        if is_today and i == n_raw:
+            flexible.extend(result)
+        else:
+            raw.extend(result)
+
+    filtered: list[dict] = []
+    for a in raw:
+        if a["pub_dt"]:
+            if a["pub_dt"][:10] != target_date:
+                continue
+        filtered.append(a)
+    filtered.extend(flexible)
+
+    if not filtered and is_today:
+        filtered = raw
+
+    seen:   set[str]  = set()
+    unique: list[dict] = []
+    for a in filtered:
+        key = a["link"] or a["title"]
+        if key not in seen:
+            seen.add(key)
+            unique.append(a)
+
+    unique.sort(key=lambda x: x["pub_dt"], reverse=True)
+
+    for a in unique:
+        a.pop("pub_dt", None)
+
+    return unique
