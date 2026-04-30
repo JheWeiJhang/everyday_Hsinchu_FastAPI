@@ -33,6 +33,9 @@ async def _fetch_with_timeout(target_date: str) -> list[dict]:
     except asyncio.TimeoutError:
         print(f"[aggregator timeout] {target_date} — returning empty list")
         return []
+    except Exception as e:
+        print(f"[aggregator error] {target_date}: {type(e).__name__}: {e}")
+        return []
 
 
 async def _background_refresh(target_date: str) -> None:

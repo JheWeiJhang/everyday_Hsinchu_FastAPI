@@ -256,7 +256,9 @@
       showSkeleton(false);
       renderArticles();
     } catch (err) {
-      showSkeleton(false);
+      // Hide skeleton AND article grid — don't restore stale articles
+      document.getElementById("skeleton-grid").classList.add("hidden");
+      document.getElementById("article-grid").classList.add("hidden");
       document.getElementById("error-state").classList.remove("hidden");
       document.getElementById("error-msg").textContent = err.message;
       document.getElementById("stats-text").textContent = "載入失敗";
