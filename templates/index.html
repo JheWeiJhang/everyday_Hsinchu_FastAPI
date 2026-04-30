@@ -92,11 +92,7 @@
   <div id="article-grid" class="hidden grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
 
   <!-- Empty state -->
-  <div id="empty-state" class="hidden text-center py-20">
-    <div class="text-5xl mb-4">🔍</div>
-    <p class="text-gray-500 text-lg font-medium">找不到相關內容</p>
-    <p class="text-gray-400 text-sm mt-1">換個日期或分類試試看</p>
-  </div>
+  <div id="empty-state" class="hidden text-center py-20"></div>
 
   <!-- Error state -->
   <div id="error-state" class="hidden text-center py-20">
@@ -157,14 +153,17 @@
     if (filtered.length === 0) {
       grid.classList.add("hidden");
       empty.classList.remove("hidden");
-      // 影片分類空白時給更具體的說明
+      // 依分類顯示不同的空白說明
       if (currentCategory === "影片") {
-        document.getElementById("empty-state").innerHTML =
-          `<div class="text-center py-16 text-gray-400">
-            <div class="text-5xl mb-4">▶️</div>
-            <p class="text-lg font-medium text-gray-500">此日期無 YouTube 影片</p>
-            <p class="text-sm mt-2">影片搜尋結果取決於 YouTube 演算法，<br>通常只涵蓋近 3～5 天的內容</p>
-          </div>`;
+        empty.innerHTML =
+          `<div class="text-5xl mb-4">▶️</div>
+           <p class="text-gray-500 text-lg font-medium">此日期無 YouTube 影片</p>
+           <p class="text-gray-400 text-sm mt-1">影片搜尋結果取決於 YouTube 演算法，<br>通常只涵蓋近 3～5 天的內容</p>`;
+      } else {
+        empty.innerHTML =
+          `<div class="text-5xl mb-4">🔍</div>
+           <p class="text-gray-500 text-lg font-medium">找不到相關內容</p>
+           <p class="text-gray-400 text-sm mt-1">換個日期或分類試試看</p>`;
       }
       document.getElementById("stats-text").textContent = "沒有找到相關內容";
       return;

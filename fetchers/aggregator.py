@@ -29,9 +29,9 @@ async def all_articles_for_date(target_date: str) -> list[dict]:
     # All sources fire at once
     # Food / travel 是全國性看板，加 hsinchu_only=True 只取含新竹關鍵字的文章
     raw_coros = rss_coros + [
-        fetch_ptt_board("Hsinchu", "生活"),
-        fetch_ptt_board("Food", "美食", hsinchu_only=True),
-        fetch_ptt_board("travel", "景點", hsinchu_only=True),
+        fetch_ptt_board("Hsinchu", "生活",  target_date=target_date),
+        fetch_ptt_board("Food",    "美食",  hsinchu_only=True, target_date=target_date),
+        fetch_ptt_board("travel",  "景點",  hsinchu_only=True, target_date=target_date),
         fetch_hsinchu_county_gov(),
         fetch_hsinchu_city_gov(),
         fetch_hsinchu_culture(),
